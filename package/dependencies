@@ -1,0 +1,9 @@
+# Comments start with a '#'.
+# Empty lines are ignored.
+
+#    = Kernel =
+
+linux-headers-5.4.53-050453
+linux-headers-5.4.53-050453-generic
+linux-image-unsigned-5.4.53-050453-generic
+linux-modules-5.4.53-050453-generic
