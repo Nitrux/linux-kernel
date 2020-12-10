@@ -3,7 +3,7 @@
 
 #    = Kernel =
 
-linux-headers-5.4.81-050481
-linux-headers-5.4.81-050481-generic
-linux-image-unsigned-5.4.81-050481-generic
-linux-modules-5.4.81-050481-generic
+linux-headers-5.4.82-050482
+linux-headers-5.4.82-050482-generic
+linux-image-unsigned-5.4.82-050482-generic
+linux-modules-5.4.82-050482-generic
