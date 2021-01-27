@@ -1,6 +1,6 @@
 # Mainline Linux Meta package [![Build Status](https://travis-ci.org/Nitrux/linux-image.svg?branch=master)](https://travis-ci.org/Nitrux/linux-image)
 
-This repository contains the source to create the `linux-image-meta` metapackage.
+This repository contains the source to create the `linux-image` metapackage.
 
 # Issues
 If you find problems with the contents of this repository please create an issue.
