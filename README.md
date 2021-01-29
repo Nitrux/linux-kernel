@@ -1,4 +1,4 @@
-# Linux kernel (mainline) [![Build Status](https://travis-ci.org/Nitrux/linux-image.svg?branch=master)](https://travis-ci.org/Nitrux/linux-image)
+# Linux kernel (mainline) [![Build Status](https://travis-ci.org/Nitrux/linux-image.svg?branch=main)](https://travis-ci.org/Nitrux/linux-image)
 
 This repository contains the source to create the `linux-image-mainline-lts` metapackage.
 
