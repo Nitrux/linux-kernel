@@ -11,11 +11,11 @@ git_commit=$(git rev-parse --short HEAD)
 	"Priority: optional" \
 	"Homepage: https://nxos.org" \
 	"Package: linux-image-mainline-lts" \
-	"Version: 0.1.2-$git_commit" \
+	"Version: 0.0.1-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
-	"Conflicts: linux-image-mainline-current" \
+	"Conflicts: " \
 	"Architecture: amd64" \
-	"Description: Meta package to install mainline Linux kernel (LTS)."
+	"Description: Meta package to install xanmod Linux kernel (LTS)."
 
 equivs-build configuration
