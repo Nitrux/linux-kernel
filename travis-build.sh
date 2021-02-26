@@ -10,7 +10,7 @@ git_commit=$(git rev-parse --short HEAD)
 	"Section: misc" \
 	"Priority: optional" \
 	"Homepage: https://nxos.org" \
-	"Package: linux-image-mainline-xanmod-lts" \
+	"Package: linux-image-xanmod-lts" \
 	"Version: 0.0.3-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
