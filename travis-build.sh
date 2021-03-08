@@ -10,12 +10,13 @@ git_commit=$(git rev-parse --short HEAD)
 	"Section: misc" \
 	"Priority: optional" \
 	"Homepage: https://nxos.org" \
-	"Package: linux-image-xanmod-lts" \
-	"Version: 0.0.3-$git_commit" \
+	"Package: linux-image-xanmod" \
+	"Version: 0.0.4-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
 	"Conflicts: " \
+	"Replaces: linux-image-xanmod-lts" \
 	"Architecture: amd64" \
-	"Description: Meta package to install xanmod Linux kernel (LTS)."
+	"Description: Meta package to install xanmod Linux kernel."
 
 equivs-build configuration
