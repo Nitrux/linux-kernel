@@ -9,7 +9,7 @@ script:
 
 branches:
   only:
-    - xanmod
+    - xanmod-edge
 
 notifications:
   email: false
