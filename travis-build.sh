@@ -3,6 +3,8 @@
 apt-get --yes update
 apt-get --yes install wget equivs curl git
 
+git config --global --add safe.directory /home/travis/build/Nitrux/linux-image
+
 deps=$(sed -e '/^#.*$/d; /^$/d; /^\s*$/d' package/dependencies | paste -sd ,)
 git_commit=$(git rev-parse --short HEAD)
 
