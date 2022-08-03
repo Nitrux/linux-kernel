@@ -3,8 +3,6 @@
 apt-get --yes update
 apt-get --yes install wget equivs curl git
 
-git config --global --add safe.directory /home/travis/build/Nitrux/linux-image
-
 deps=$(sed -e '/^#.*$/d; /^$/d; /^\s*$/d' package/dependencies | paste -sd ,)
 git_commit=$(git rev-parse --short HEAD)
 
@@ -13,7 +11,7 @@ git_commit=$(git rev-parse --short HEAD)
 	"Priority: optional" \
 	"Homepage: https://nxos.org" \
 	"Package: linux-image-xanmod-edge" \
-	"Version: 0.1.2-$git_commit" \
+	"Version: 0.1.3-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
 	"Conflicts: " \
