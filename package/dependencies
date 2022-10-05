@@ -3,5 +3,5 @@
 
 #    = Kernel =
 
-linux-headers-5.19.12-xanmod1-x64v2
-linux-image-5.19.12-xanmod1-x64v2
+linux-headers-6.0.0-x64v2-xanmod1
+linux-image-6.0.0-x64v2-xanmod1
