@@ -10,11 +10,12 @@ git_commit=$(git rev-parse --short HEAD)
 	"Section: misc" \
 	"Priority: optional" \
 	"Homepage: https://nxos.org" \
-	"Package: linux-image-xanmod-next" \
-	"Version: 0.0.2-$git_commit" \
+	"Package: linux-image-xanmod-main" \
+	"Version: 0.0.1-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
-	"Conflicts: linux-image-xanmod-edge" \
+	"Conflicts: linux-image-xanmod-edge, linux-image-xanmod-next" \
+	"Replaces: linux-image-xanmod-next" \
 	"Architecture: amd64" \
 	"Description: Meta package to install xanmod Linux kernel."
 
