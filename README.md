@@ -1,6 +1,6 @@
-# Linux kernel (xanmod) [![Build Status](https://travis-ci.org/Nitrux/linux-image.svg?branch=xanmod)](https://travis-ci.org/Nitrux/linux-image)
+# Linux kernel (xanmod)
 
-This repository contains the source to create the `linux-image-xanmod` metapackage.
+This repository contains the source to create the `linux-image-xanmod-main` metapackage.
 
 # Issues
 If you find problems with the contents of this repository please create an issue.
