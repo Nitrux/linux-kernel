@@ -3,7 +3,7 @@ name: Build and push packages to PackageCloud.
 on:
   push:
     branches:
-      - 'xanmod-main'
+      - 'liquorix'
     paths-ignore:
       - 'README.md'
 

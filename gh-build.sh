@@ -10,13 +10,11 @@ git_commit=$(git rev-parse --short HEAD)
 	"Section: misc" \
 	"Priority: optional" \
 	"Homepage: https://nxos.org" \
-	"Package: linux-image-xanmod-main" \
+	"Package: linux-image-liquorix" \
 	"Version: 0.0.1-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
-	"Conflicts: linux-image-xanmod-edge, linux-image-xanmod-next" \
-	"Replaces: linux-image-xanmod-next" \
 	"Architecture: amd64" \
-	"Description: Meta package to install xanmod Linux kernel."
+	"Description: Liquorix is a distro kernel replacement built using the best configuration."
 
 equivs-build configuration
