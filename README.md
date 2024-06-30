@@ -1,6 +1,6 @@
-# Linux kernel (xanmod)
+# Linux kernel
 
-This repository contains the source to create the `linux-image-xanmod-main` metapackage.
+Metapackage to install Linux kernel and headers.
 
 # Issues
 If you find problems with the contents of this repository please create an issue.
