@@ -3,5 +3,5 @@
 
 #    = Kernel =
 
-linux-headers-liquorix-amd64
-linux-image-liquorix-amd64
+linux-headers-6.13.4-pikaos
+linux-image-6.13.4-pikaos
