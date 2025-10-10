@@ -34,7 +34,7 @@ git_commit=$(git rev-parse --short HEAD 2>/dev/null)
 	"Section: misc" \
 	"Priority: required" \
 	"Homepage: https://nxos.org" \
-	"Package: linux-image-pikaos-amd64" \
+	"Package: linux-pikaos-amd64" \
 	"Version: 0.0.1-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
