@@ -34,11 +34,11 @@ git_commit=$(git rev-parse --short HEAD 2>/dev/null)
 	"Section: misc" \
 	"Priority: required" \
 	"Homepage: https://nxos.org" \
-	"Package: linux-pikaos-amd64" \
-	"Version: 0.0.3-$git_commit" \
+	"Package: linux-psycachy-amd64" \
+	"Version: 0.0.1-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
 	"Architecture: amd64" \
-	"Description: PikaOS Linux kernel and headers packages with patches from CachyOS."
+	"Description: PsyCachy is a kernel with improved settings for Debian/Ubuntu Linux distributions from CachyOS."
 
 equivs-build configuration
