@@ -26,6 +26,7 @@ llvm-runtime
 
 linux-cpupower
 linux-libc-dev
+linux-libc-dev
 linux-perf
 pci.ids
 rpcsvc-proto
