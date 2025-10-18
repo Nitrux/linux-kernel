@@ -3,80 +3,71 @@
 
 #    = Kernel =
 
-linux-image-6.17.2-pikaos
-linux-headers-6.17.2-pikaos
+linux-image-6.17.3-1-liquorix-amd64
+linux-headers-6.17.3-1-liquorix-amd64
 
 #    = Compilers =
 
 binutils
 binutils-common
 binutils-x86-64-linux-gnu
-clang
-clang-19
-gcc-15-base
-lld
-lld-19
-llvm
-llvm-19
-llvm-19-linker-tools
-llvm-19-runtime
-llvm-runtime
+busybox
+cpio
+cpp
+cpp-15
+cpp-15-x86-64-linux-gnu
+cpp-x86-64-linux-gnu
+gcc
+gcc-15
+gcc-15-x86-64-linux-gnu
+gcc-x86-64-linux-gnu
 
 #    = Other software =
 
-linux-cpupower
+klibc-utilsd
 linux-libc-dev
-linux-perf
+linux-base
 pci.ids
+perl
+perl-modules-5.40
 rpcsvc-proto
-scx
-kernel-pika-config
+zlib1g-dev
 
 #    = Supporting libraries =
 
 libasan8
-libatomic1
 libbabeltrace1
 libbinutils
 libc-dev-bin
 libc6-dev
-libclang-cpp19
-libclang1-19
-libcpupower1
+libcc1-0
 libcrypt-dev
 libctf-nobfd0
 libctf0
-libcurl4t64
-libdebuginfod-common
-libdebuginfod1t64
 libdw1t64
-libedit2
-libelf1t64
-libgc1
-libglib2.0-0t64
+libelf-dev
+libgcc-15-dev
+libgdbm-compat4t64
 libgomp1
 libgprofng0
 libhwasan0
+libisl23
 libitm1
-libjansson4
-libjson-c5
-libllvm19
+libklibc
 liblsan0
-libnl-3-200
-libnl-genl-3-200
+libmpc3
+libmpfr6
 libnuma1
-libobjc-14-dev
-libobjc4
-libopencsd1
 libpci3
+libperl5.40
 libpfm4
 libpython3.13
+libpython3.13-minimal
+libpython3.13-stdlib
 libquadmath0
-libsframe1
+libsframe2
 libslang2
 libtraceevent1
 libtsan2
 libubsan1
-libunwind8
-libxml2
-libz3-4
+libzstd-dev

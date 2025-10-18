@@ -34,11 +34,11 @@ git_commit=$(git rev-parse --short HEAD 2>/dev/null)
 	"Section: misc" \
 	"Priority: required" \
 	"Homepage: https://nxos.org" \
-	"Package: linux-pikaos-amd64" \
-	"Version: 0.0.4-$git_commit" \
+	"Package: linux-liquorix-amd64" \
+	"Version: 0.0.1-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
 	"Architecture: amd64" \
-	"Description: PikaOS Linux kernel and headers packages with patches from CachyOS."
+	"Description: Liquorix is an enthusiast Linux kernel designed for uncompromised responsiveness in interactive systems."
 
 equivs-build configuration
