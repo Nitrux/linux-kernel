@@ -24,7 +24,7 @@ gcc-x86-64-linux-gnu
 
 #    = Other software =
 
-eeeeeeeeeeeeeeeeeeee
+klibc-utils
 linux-libc-dev
 linux-base
 pci.ids
