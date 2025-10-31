@@ -34,11 +34,11 @@ git_commit=$(git rev-parse --short HEAD 2>/dev/null)
 	"Section: misc" \
 	"Priority: required" \
 	"Homepage: https://nxos.org" \
-	"Package: linux-psycachy-amd64" \
-	"Version: 0.0.3-$git_commit" \
+	"Package: linux-pika-amd64" \
+	"Version: 0.0.1-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
 	"Architecture: amd64" \
-	"Description: PsyCachy is a kernel with improved settings for Debian/Ubuntu Linux distributions from CachyOS."
+	"Description: PikaOS is a gaming/optimization-focused Linux distribution that emphasizes ease of use and high compatibility."
 
 equivs-build configuration
