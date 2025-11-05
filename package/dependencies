@@ -3,8 +3,8 @@
 
 #    = Kernel =
 
-linux-image-6.17.6-1-liquorix-amd64
-linux-headers-6.17.6-1-liquorix-amd64
+linux-image-6.17.7-1-liquorix-amd64
+linux-headers-6.17.7-1-liquorix-amd64
 
 #    = Compilers =
 
