@@ -16,7 +16,7 @@ git_commit=$(git rev-parse --short HEAD 2>/dev/null)
 	"Priority: required" \
 	"Homepage: https://nxos.org" \
 	"Package: linux-pika-amd64" \
-	"Version: 0.0.5-$git_commit" \
+	"Version: 0.0.6-$git_commit" \
 	"Maintainer: Uri Herrera <uri_herrera@nxos.org>" \
 	"Depends: $deps" \
 	"Architecture: amd64" \

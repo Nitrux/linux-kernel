@@ -29,6 +29,7 @@ linux-perf
 pci.ids
 rpcsvc-proto
 scx
+scx-tools
 
 #    = Supporting libraries =
 
