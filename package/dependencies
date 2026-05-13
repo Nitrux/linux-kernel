@@ -3,8 +3,8 @@
 
 #    = Kernel =
 
-linux-image-7.0.0-pikaos
-linux-headers-7.0.0-pikaos
+linux-image-7.0.6-pikaos
+linux-headers-7.0.6-pikaos
 
 #    = Compilers =
 
