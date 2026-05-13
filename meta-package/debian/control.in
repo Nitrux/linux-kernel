@@ -1,0 +1,49 @@
+Source: linux-nitrux-amd64
+Section: kernel
+Priority: optional
+Maintainer: Uri Herrera <uri_herrera@nxos.org>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.1
+
+Package: linux-nitrux-amd64
+Section: kernel
+Architecture: amd64
+Depends:
+    ${misc:Depends},
+    linux-image-@KERNEL_VERSION@-nitrux,
+    linux-headers-@KERNEL_VERSION@-nitrux,
+    linux-cpupower,
+    linux-perf,
+    scx,
+    clang,
+    lld,
+    llvm
+Conflicts:
+    linux-image-rt-amd64,
+    linux-image-cloud-amd64,
+    linux-image-amd64,
+# DKMS Of stuff already in nitrux kernel
+    acpi-call-dkms,
+    wireguard-dkms,
+    v4l2loopback-dkms,
+    wireguard-modules,
+    lenovolegionlinux-dkms
+Provides:
+    linux-headers-generic,
+# DKMS Of stuff already in nitrux kernel
+    acpi-call-dkms (= 1.2.2),
+    wireguard-dkms (= 1.0.20260606-1.0),
+    v4l2loopback-dkms (= 0.15.3),
+    wireguard-modules (= 1.0.0),
+    lenovolegionlinux-dkms (= 0.0.20)
+Replaces:
+    linux-image-rt-amd64,
+    linux-image-cloud-amd64,
+    linux-image-amd64,
+# DKMS Of stuff already in nitrux kernel
+    acpi-call-dkms,
+    wireguard-dkms,
+    v4l2loopback-dkms,
+    wireguard-modules,
+    lenovolegionlinux-dkms
+Description: metapackage for installing the Nitrux amd64 kernel

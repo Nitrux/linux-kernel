@@ -3,7 +3,7 @@ name: Build and push packages to PackageCloud.
 on:
   push:
     branches:
-      - 'linux-pika'
+      - 'linux-nitrux'
     paths-ignore:
       - 'README.md'
 
@@ -19,18 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install necessary packages
-        run: apt -q update && apt -yy install devscripts equivs lintian ruby-full sudo
+      - name: Install PackageCloud client
+        run: apt -q update && apt -yy install ruby-full ca-certificates && gem install package_cloud
 
-      - name: Install PackageCloud
-        run: gem install package_cloud
+      - name: Build kernel and package set
+        run: ./gh-build.sh
 
-      - name: Generate Debian package
-        run: |
-          sudo ./gh-build.sh
-
-      - name: Push package.
+      - name: Push packages
         env:
           PACKAGECLOUD_TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
-        run: |
-          package_cloud push nitrux/testing/debian/duke $(pwd)/*.deb
+        run: package_cloud push nitrux/testing/debian/duke output/*.deb

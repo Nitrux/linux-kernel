@@ -1,0 +1,5 @@
+linux-nitrux-amd64 (0.0.0-0) unstable; urgency=low
+
+  * Generated at build time. See stages/06-prepare-meta-package
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Thu, 01 Jan 1970 00:00:00 +0000

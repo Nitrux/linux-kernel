@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2026 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+
+# -- Fetch upstream kernel source.
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+SRC_NAME="${UPSTREAM_FLAVOR}-${VERSION}${UPSTREAM_SUFFIX}"
+ARCHIVE_NAME="${SRC_NAME}.tar.gz"
+SRC_URL="${UPSTREAM_BASE_URL}/${SRC_NAME}/${ARCHIVE_NAME}"
+
+mkdir -p "$ROOT_DIR/work"
+cd "$ROOT_DIR/work"
+
+if [ ! -f "$ARCHIVE_NAME" ]; then
+    echo "Downloading source: $SRC_URL"
+    wget -nv "$SRC_URL"
+fi
+
+rm -rf "$SRC_NAME"
+tar -xf "$ARCHIVE_NAME"
+
+echo "$SRC_NAME" > "$ROOT_DIR/work/source-dir"
+echo "Source ready: $ROOT_DIR/work/$SRC_NAME"

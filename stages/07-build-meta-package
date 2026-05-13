@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2026 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+
+# -- Build meta and configuration packages.
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+META_DIR="$ROOT_DIR/work/meta-package"
+
+cd "$META_DIR"
+
+LOGNAME=root dh_make --createorig -y -l -p linux-nitrux-amd64_"$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")" || true
+dpkg-buildpackage --no-sign

@@ -1,7 +1,19 @@
-# Compiled source #
-###################
-*.directory
+# Runtime build directories
+work/
+output/
+
+# Debian package outputs
+*.deb
+*.changes
+*.build
+*.buildinfo
+*.dsc
+*.orig.tar.*
+*.tar.gz
+
+# General
 *.bak
+*.directory
 /.project
 *.db
 *.qmlc

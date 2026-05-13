@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2026 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+
+# -- Generate dynamic meta-package metadata.
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+META_DIR="$ROOT_DIR/work/meta-package"
+VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+DEB_MAINTAINER_NAME="${DEB_MAINTAINER_NAME:-Uri Herrera}"
+DEB_MAINTAINER_EMAIL="${DEB_MAINTAINER_EMAIL:-uri_herrera@nxos.org}"
+
+rm -rf "$META_DIR"
+mkdir -p "$META_DIR"
+cp -a "$ROOT_DIR/meta-package/." "$META_DIR/"
+
+sed "s/@KERNEL_VERSION@/${VERSION}/g" "$META_DIR/debian/control.in" > "$META_DIR/debian/control"
+
+DATE_RFC2822="$(date -R)"
+cat > "$META_DIR/debian/changelog" <<CHANGELOG
+linux-nitrux-amd64 (${VERSION}-${KERNEL_PKG_RELEASE}) unstable; urgency=low
+
+  * Build for Linux ${VERSION}
+
+ -- ${DEB_MAINTAINER_NAME} <${DEB_MAINTAINER_EMAIL}>  ${DATE_RFC2822}
+CHANGELOG

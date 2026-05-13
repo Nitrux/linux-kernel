@@ -1,9 +1,13 @@
-# Nitrux Kernel Meta package
+# Nitrux Linux Kernel Build Repository
 
-This repository contains the source to create the `linux-*-amd64` metapackage.
+This repository builds a full patched Linux kernel package set and the matching meta/config packages.
+
+# Licensing
+
+The repository and its contents are licensed under **BSD-3-Clause**.
 
 # Issues
 
-If you encounter any issues with the contents of this repository, please report them by creating an issue.
+If any problems are encountered, users can create an issue.
 
-©2025 Nitrux Latinoamericana S.C.
+©2026 Nitrux Latinoamericana S.C.
