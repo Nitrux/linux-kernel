@@ -17,18 +17,38 @@ export UPSTREAM_BASE_URL="${UPSTREAM_BASE_URL:-https://github.com/CachyOS/linux/
 export KERNEL_LOCALVERSION="${KERNEL_LOCALVERSION:--nitrux}"
 export KERNEL_PKG_RELEASE="${KERNEL_PKG_RELEASE:-1nitrux1}"
 export KERNEL_MAKE_JOBS="${KERNEL_MAKE_JOBS:-$(nproc)}"
+export KERNEL_LTO="${KERNEL_LTO:-thin}"
+export KERNEL_DEBUG_COMPRESSION="${KERNEL_DEBUG_COMPRESSION:-none}"
 
 cd "$ROOT_DIR"
-mkdir -p output work
+
+
+# -- Reset build workspace.
+
+rm -rf "$ROOT_DIR/work" "$ROOT_DIR/output"
+mkdir -p "$ROOT_DIR/cache" "$ROOT_DIR/output" "$ROOT_DIR/work"
 
 if [ "$(dpkg --print-architecture)" != "amd64" ]; then
     echo "This build pipeline only supports amd64."
     exit 1
 fi
 
-if command -v apt-get >/dev/null 2>&1; then
-    apt-get update -y
-    apt-get install -y \
+
+# -- Install build dependencies.
+
+if [ "${SKIP_BUILD_DEPS:-0}" != "1" ] && command -v apt-get >/dev/null 2>&1; then
+    if [ "$(id -u)" -eq 0 ]; then
+        APT=(apt-get)
+    elif command -v sudo >/dev/null 2>&1; then
+        APT=(sudo apt-get)
+    else
+        echo "Error: installing build dependencies requires root or sudo."
+        echo "Install them manually, then rerun with SKIP_BUILD_DEPS=1."
+        exit 1
+    fi
+
+    "${APT[@]}" update -y
+    "${APT[@]}" install -y \
         bc \
         bison \
         build-essential \
@@ -46,9 +66,15 @@ if command -v apt-get >/dev/null 2>&1; then
         libssl-dev \
         lld \
         llvm \
+        patch \
+        rsync \
         wget \
+        zstd \
         xz-utils
 fi
+
+
+# -- Run bootstrap stages.
 
 "$ROOT_DIR/stages/01-fetch-source"
 "$ROOT_DIR/stages/02-apply-patches"

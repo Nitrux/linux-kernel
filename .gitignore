@@ -1,4 +1,5 @@
 # Runtime build directories
+cache/
 work/
 output/
 
@@ -17,3 +18,4 @@ output/
 /.project
 *.db
 *.qmlc
+*.log

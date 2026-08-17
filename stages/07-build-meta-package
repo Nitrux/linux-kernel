@@ -13,5 +13,4 @@ META_DIR="$ROOT_DIR/work/meta-package"
 
 cd "$META_DIR"
 
-LOGNAME=root dh_make --createorig -y -l -p linux-nitrux-amd64_"$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")" || true
-dpkg-buildpackage --no-sign
+dpkg-buildpackage --build=binary --no-sign

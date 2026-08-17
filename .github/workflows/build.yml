@@ -1,31 +1,83 @@
 name: Build and push packages to PackageCloud.
 
 on:
-  push:
-    branches:
-      - 'linux-nitrux'
-    paths-ignore:
-      - 'README.md'
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner label (use self-hosted or a larger runner when available)
+        required: true
+        default: ubuntu-24.04
+        type: string
+      lto:
+        description: Link-time optimization mode
+        required: true
+        default: none
+        type: choice
+        options:
+          - none
+          - thin
+          - full
+      publish:
+        description: Push the resulting packages to PackageCloud
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
+  build-amd64:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 360
 
     container:
-      image: debian:testing
+      image: debian:stable
       env:
         DEBIAN_FRONTEND: noninteractive
+        KERNEL_LTO: ${{ inputs.lto }}
+        KERNEL_DEBUG_COMPRESSION: zstd
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install PackageCloud client
-        run: apt -q update && apt -yy install ruby-full ca-certificates && gem install package_cloud
+      - name: Cache upstream source archive
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: kernel-source-${{ hashFiles('VERSION') }}
+
+      - name: Configure snapshot APT sources
+        run: |
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/10no-check-valid-until
+          cat <<EOF > /etc/apt/sources.list.d/debian.sources
+          Types: deb
+          URIs: http://snapshot.debian.org/archive/debian/20260725T202958Z
+          Suites: testing testing-updates
+          Components: main non-free non-free-firmware contrib
+          Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+          Architectures: amd64
+          EOF
+          apt-get update
 
       - name: Build kernel and package set
         run: ./gh-build.sh
 
+      - name: Upload Debian packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-nitrux-${{ hashFiles('VERSION') }}-amd64
+          path: output/*.deb
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Install PackageCloud client
+        if: ${{ inputs.publish }}
+        run: apt-get install -y ruby-full ca-certificates && gem install --no-document package_cloud
+
       - name: Push packages
+        if: ${{ inputs.publish }}
         env:
           PACKAGECLOUD_TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
         run: package_cloud push nitrux/testing/debian/duke output/*.deb

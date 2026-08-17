@@ -12,6 +12,31 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC_NAME="$(cat "$ROOT_DIR/work/source-dir")"
 SRC_DIR="$ROOT_DIR/work/$SRC_NAME"
 
+
+# -- Never allow interactive Kconfig prompts in this stage.
+
+exec </dev/null
+
 cd "$SRC_DIR"
 
-make CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 -j"$KERNEL_MAKE_JOBS" bindeb-pkg LOCALVERSION="$KERNEL_LOCALVERSION" KDEB_PKGVERSION="$(make kernelversion)-${KERNEL_PKG_RELEASE}"
+
+# -- Ensure config is fully resolved before bindeb-pkg.
+
+make LLVM=1 LLVM_IAS=1 olddefconfig
+if [ -n "$(make LLVM=1 LLVM_IAS=1 -s listnewconfig 2>/dev/null)" ]; then
+    echo "Error: .config still has unresolved new symbols."
+    make LLVM=1 LLVM_IAS=1 -s listnewconfig || true
+    exit 1
+fi
+
+KERNEL_BASE_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+if ! printf '%s' "$KERNEL_BASE_VERSION" | grep -Eq '^[0-9]'; then
+    echo "Error: invalid kernel base version for KDEB_PKGVERSION: '$KERNEL_BASE_VERSION'"
+    exit 1
+fi
+
+KDEB_PKGVERSION_VALUE="${KERNEL_BASE_VERSION}-${KERNEL_PKG_RELEASE}"
+
+make CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 -j"$KERNEL_MAKE_JOBS" bindeb-pkg \
+    LOCALVERSION="$KERNEL_LOCALVERSION" \
+    KDEB_PKGVERSION="$KDEB_PKGVERSION_VALUE"

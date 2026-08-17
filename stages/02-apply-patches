@@ -16,12 +16,16 @@ SERIES_FILE="$ROOT_DIR/patches/series"
 cd "$SRC_DIR"
 
 if [ -f "$SERIES_FILE" ]; then
-    while IFS= read -r patch_name; do
+    while IFS= read -r patch_name || [ -n "$patch_name" ]; do
         [ -z "$patch_name" ] && continue
         case "$patch_name" in
             \#*) continue ;;
         esac
+        if [ ! -f "$ROOT_DIR/patches/$patch_name" ]; then
+            echo "Error: patch listed in series does not exist: $patch_name"
+            exit 1
+        fi
         echo "Applying: $patch_name"
-        patch -Np1 -i "$ROOT_DIR/patches/$patch_name"
+        patch -Np1 --batch --forward --no-backup-if-mismatch -i "$ROOT_DIR/patches/$patch_name"
     done < "$SERIES_FILE"
 fi

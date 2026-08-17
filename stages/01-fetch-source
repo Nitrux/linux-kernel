@@ -13,17 +13,20 @@ VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 SRC_NAME="${UPSTREAM_FLAVOR}-${VERSION}${UPSTREAM_SUFFIX}"
 ARCHIVE_NAME="${SRC_NAME}.tar.gz"
 SRC_URL="${UPSTREAM_BASE_URL}/${SRC_NAME}/${ARCHIVE_NAME}"
+CACHE_DIR="$ROOT_DIR/cache"
+CACHED_ARCHIVE="$CACHE_DIR/$ARCHIVE_NAME"
 
-mkdir -p "$ROOT_DIR/work"
+mkdir -p "$CACHE_DIR" "$ROOT_DIR/work"
 cd "$ROOT_DIR/work"
 
-if [ ! -f "$ARCHIVE_NAME" ]; then
+if [ ! -f "$CACHED_ARCHIVE" ]; then
     echo "Downloading source: $SRC_URL"
-    wget -nv "$SRC_URL"
+    wget -nv -O "$CACHED_ARCHIVE.part" "$SRC_URL"
+    mv "$CACHED_ARCHIVE.part" "$CACHED_ARCHIVE"
 fi
 
 rm -rf "$SRC_NAME"
-tar -xf "$ARCHIVE_NAME"
+tar -xf "$CACHED_ARCHIVE"
 
 echo "$SRC_NAME" > "$ROOT_DIR/work/source-dir"
 echo "Source ready: $ROOT_DIR/work/$SRC_NAME"

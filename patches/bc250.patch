@@ -14,4 +14,3 @@ diff '--color=auto' -ruN linux/drivers/gpu/drm/amd/pm/swsmu/smu11/cyan_skillfish
  #define CYAN_SKILLFISH_VDDC_MIN			700
 
 
- 
