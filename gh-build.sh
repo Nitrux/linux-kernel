@@ -33,6 +33,12 @@ if [ "$(dpkg --print-architecture)" != "amd64" ]; then
     exit 1
 fi
 
+if [ -z "${SECURE_BOOT_KEY:-}" ] || [ -z "${SECURE_BOOT_CERT:-}" ]; then
+    echo "Error: SECURE_BOOT_KEY and SECURE_BOOT_CERT are required for a signed kernel build."
+    echo "Generate a key pair with: $ROOT_DIR/scripts/create-secure-boot-keys"
+    exit 1
+fi
+
 
 # -- Install build dependencies.
 
@@ -68,6 +74,8 @@ if [ "${SKIP_BUILD_DEPS:-0}" != "1" ] && command -v apt-get >/dev/null 2>&1; the
         llvm \
         patch \
         rsync \
+        openssl \
+        sbsigntool \
         wget \
         zstd \
         xz-utils
@@ -80,6 +88,7 @@ fi
 "$ROOT_DIR/stages/02-apply-patches"
 "$ROOT_DIR/stages/03-configure-kernel"
 "$ROOT_DIR/stages/04-build-kernel"
+"$ROOT_DIR/stages/05-sign-kernel"
 "$ROOT_DIR/stages/05-stage-kernel-outputs"
 "$ROOT_DIR/stages/06-prepare-meta-package"
 "$ROOT_DIR/stages/07-build-meta-package"

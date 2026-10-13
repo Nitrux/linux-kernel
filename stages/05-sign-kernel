@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2026 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+
+# -- Sign the kernel image in the Debian package for UEFI Secure Boot.
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+SECURE_BOOT_KEY="${SECURE_BOOT_KEY:-}"
+SECURE_BOOT_CERT="${SECURE_BOOT_CERT:-}"
+
+if [ -z "$SECURE_BOOT_KEY" ] || [ -z "$SECURE_BOOT_CERT" ]; then
+    echo "Error: SECURE_BOOT_KEY and SECURE_BOOT_CERT must point to the Secure Boot signing credentials."
+    echo "Generate a key pair with: $ROOT_DIR/scripts/create-secure-boot-keys"
+    exit 1
+fi
+
+for required_file in "$SECURE_BOOT_KEY" "$SECURE_BOOT_CERT"; do
+    if [ ! -r "$required_file" ]; then
+        echo "Error: Secure Boot signing file is not readable: $required_file"
+        exit 1
+    fi
+done
+
+for required_command in dpkg-deb sbsign sbverify; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "Error: required command is not available: $required_command"
+        exit 1
+    fi
+done
+
+mapfile -t image_packages < <(
+    find "$ROOT_DIR/work" -maxdepth 1 -type f \
+        -name 'linux-image-*.deb' \
+        ! -name 'linux-image-*-dbg_*.deb' \
+        -print
+)
+
+if [ "${#image_packages[@]}" -ne 1 ]; then
+    echo "Error: expected exactly one non-debug kernel image package, found ${#image_packages[@]}."
+    exit 1
+fi
+
+image_package="${image_packages[0]}"
+work_dir="$(mktemp -d "$ROOT_DIR/work/secure-boot.XXXXXX")"
+trap 'rm -rf "$work_dir"' EXIT
+
+payload_dir="$work_dir/payload"
+dpkg-deb --raw-extract "$image_package" "$payload_dir"
+
+mapfile -t kernel_images < <(
+    find "$payload_dir/boot" -maxdepth 1 -type f -name 'vmlinuz-*' -print
+)
+
+if [ "${#kernel_images[@]}" -ne 1 ]; then
+    echo "Error: expected exactly one kernel image in $image_package, found ${#kernel_images[@]}."
+    exit 1
+fi
+
+kernel_image="${kernel_images[0]}"
+signed_image="$work_dir/vmlinuz.signed"
+
+echo "Signing kernel image: ${kernel_image##*/}"
+sbsign \
+    --key "$SECURE_BOOT_KEY" \
+    --cert "$SECURE_BOOT_CERT" \
+    --output "$signed_image" \
+    "$kernel_image"
+mv -f "$signed_image" "$kernel_image"
+sbverify --cert "$SECURE_BOOT_CERT" "$kernel_image" >/dev/null
+
+# The kernel image changed after extraction, so refresh the package checksums.
+if [ -f "$payload_dir/DEBIAN/md5sums" ]; then
+    (
+        cd "$payload_dir"
+        find . -type f ! -path './DEBIAN/*' -printf '%P\n' |
+            LC_ALL=C sort |
+            xargs -r md5sum > DEBIAN/md5sums
+    )
+fi
+
+signed_package="$work_dir/$(basename "$image_package")"
+dpkg-deb --build --root-owner-group "$payload_dir" "$signed_package" >/dev/null
+mv -f "$signed_package" "$image_package"
+
+echo "Signed package: $(basename "$image_package")"

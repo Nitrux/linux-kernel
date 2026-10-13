@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2026 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+
+# -- Generate a local Secure Boot signing key and certificate.
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+OUTPUT_DIR="${1:-$ROOT_DIR/secure-boot}"
+KEY_FILE="$OUTPUT_DIR/db.key"
+CERT_FILE="$OUTPUT_DIR/db.crt"
+DER_FILE="$OUTPUT_DIR/db.der"
+SUBJECT="${SECURE_BOOT_SUBJECT:-/CN=Nitrux Secure Boot Kernel Signing/}"
+DAYS="${SECURE_BOOT_CERT_DAYS:-3650}"
+
+if ! command -v openssl >/dev/null 2>&1; then
+    echo "Error: openssl is required to generate Secure Boot credentials."
+    exit 1
+fi
+
+if [ -e "$KEY_FILE" ] || [ -e "$CERT_FILE" ] || [ -e "$DER_FILE" ]; then
+    echo "Error: Secure Boot credentials already exist in $OUTPUT_DIR"
+    echo "Remove that directory only if you intend to replace the key pair."
+    exit 1
+fi
+
+mkdir -p "$OUTPUT_DIR"
+chmod 700 "$OUTPUT_DIR"
+umask 077
+
+openssl req \
+    -new \
+    -x509 \
+    -newkey rsa:4096 \
+    -nodes \
+    -sha256 \
+    -days "$DAYS" \
+    -subj "$SUBJECT" \
+    -keyout "$KEY_FILE" \
+    -out "$CERT_FILE"
+openssl x509 -in "$CERT_FILE" -outform DER -out "$DER_FILE"
+
+chmod 600 "$KEY_FILE"
+chmod 644 "$CERT_FILE" "$DER_FILE"
+
+echo "Secure Boot private key: $KEY_FILE"
+echo "Secure Boot certificate:  $CERT_FILE"
+echo "Enrollment certificate:   $DER_FILE"
+echo
+echo "Keep $KEY_FILE private. Enroll $DER_FILE in the target firmware/MOK database."

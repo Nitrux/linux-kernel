@@ -2,6 +2,7 @@
 cache/
 work/
 output/
+secure-boot/
 
 # Debian package outputs
 *.deb

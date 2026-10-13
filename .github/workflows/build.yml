@@ -60,6 +60,21 @@ jobs:
           EOF
           apt-get update
 
+      - name: Materialize Secure Boot signing credentials
+        env:
+          SECURE_BOOT_KEY_CONTENT: ${{ secrets.SECURE_BOOT_KEY }}
+          SECURE_BOOT_CERT_CONTENT: ${{ secrets.SECURE_BOOT_CERT }}
+        run: |
+          test -n "$SECURE_BOOT_KEY_CONTENT" || { echo "SECURE_BOOT_KEY secret is required" >&2; exit 1; }
+          test -n "$SECURE_BOOT_CERT_CONTENT" || { echo "SECURE_BOOT_CERT secret is required" >&2; exit 1; }
+          install -d -m 700 /tmp/nitrux-secure-boot
+          printf '%s\n' "$SECURE_BOOT_KEY_CONTENT" > /tmp/nitrux-secure-boot/db.key
+          printf '%s\n' "$SECURE_BOOT_CERT_CONTENT" > /tmp/nitrux-secure-boot/db.crt
+          chmod 600 /tmp/nitrux-secure-boot/db.key
+          chmod 644 /tmp/nitrux-secure-boot/db.crt
+          echo "SECURE_BOOT_KEY=/tmp/nitrux-secure-boot/db.key" >> "$GITHUB_ENV"
+          echo "SECURE_BOOT_CERT=/tmp/nitrux-secure-boot/db.crt" >> "$GITHUB_ENV"
+
       - name: Build kernel and package set
         run: ./gh-build.sh
 
