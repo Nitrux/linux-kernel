@@ -1,17 +1,17 @@
-Source: linux-nitrux-amd64
+Source: linux-nitrux-amd64@KERNEL_VARIANT_SUFFIX@
 Section: kernel
 Priority: optional
 Maintainer: Uri Herrera <uri_herrera@nxos.org>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.1
 
-Package: linux-nitrux-amd64
+Package: linux-nitrux-amd64@KERNEL_VARIANT_SUFFIX@
 Section: kernel
 Architecture: amd64
 Depends:
     ${misc:Depends},
-    linux-image-@KERNEL_VERSION@-nitrux,
-    linux-headers-@KERNEL_VERSION@-nitrux,
+    linux-image-@KERNEL_VERSION@@KERNEL_LOCALVERSION@,
+    linux-headers-@KERNEL_VERSION@@KERNEL_LOCALVERSION@,
     linux-cpupower,
     linux-perf,
     scx,

@@ -14,7 +14,21 @@ export DEBIAN_FRONTEND="${DEBIAN_FRONTEND:-noninteractive}"
 export UPSTREAM_FLAVOR="${UPSTREAM_FLAVOR:-cachyos}"
 export UPSTREAM_SUFFIX="${UPSTREAM_SUFFIX:--1}"
 export UPSTREAM_BASE_URL="${UPSTREAM_BASE_URL:-https://github.com/CachyOS/linux/releases/download}"
-export KERNEL_LOCALVERSION="${KERNEL_LOCALVERSION:--nitrux}"
+export KERNEL_VARIANT="${KERNEL_VARIANT:-x86-64-v3}"
+case "$KERNEL_VARIANT" in
+    x86-64-v3)
+        export KERNEL_VARIANT_SUFFIX=""
+        ;;
+    znver4)
+        export KERNEL_VARIANT_SUFFIX="-znver4"
+        ;;
+    *)
+        echo "Error: KERNEL_VARIANT must be one of: x86-64-v3, znver4"
+        exit 1
+        ;;
+esac
+export KERNEL_LOCALVERSION="${KERNEL_LOCALVERSION:--nitrux${KERNEL_VARIANT_SUFFIX}}"
+export KERNEL_META_PACKAGE="linux-nitrux-amd64${KERNEL_VARIANT_SUFFIX}"
 export KERNEL_PKG_RELEASE="${KERNEL_PKG_RELEASE:-1nitrux1}"
 export KERNEL_MAKE_JOBS="${KERNEL_MAKE_JOBS:-$(nproc)}"
 export KERNEL_LTO="${KERNEL_LTO:-thin}"

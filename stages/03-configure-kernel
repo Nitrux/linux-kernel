@@ -25,8 +25,20 @@ cp "$ROOT_DIR/config" .config
 
 make LLVM=1 LLVM_IAS=1 olddefconfig
 
-scripts/config -d MZEN4 -d X86_NATIVE_CPU
-scripts/config -e GENERIC_CPU --set-val X86_64_VERSION 3
+case "$KERNEL_VARIANT" in
+    x86-64-v3)
+        scripts/config -d MZEN4 -d X86_NATIVE_CPU
+        scripts/config -e GENERIC_CPU --set-val X86_64_VERSION 3
+        ;;
+    znver4)
+        scripts/config -d GENERIC_CPU -d X86_NATIVE_CPU
+        scripts/config -e MZEN4 --set-val X86_64_VERSION 3
+        ;;
+    *)
+        echo "Error: KERNEL_VARIANT must be one of: x86-64-v3, znver4"
+        exit 1
+        ;;
+esac
 scripts/config -e CACHY
 case "$KERNEL_LTO" in
     full)

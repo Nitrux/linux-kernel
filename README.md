@@ -8,7 +8,7 @@
 
 # Introduction
 
-This repository builds a full patched Linux kernel package set and the matching meta package.
+This repository builds a fully patched Linux kernel package set and the matching meta package.
 
 ## Building
 
@@ -22,6 +22,8 @@ On Debian or Ubuntu, run:
 
 ThinLTO is the local-build default. Set `KERNEL_DEBUG_COMPRESSION=zstd` to reduce build-disk usage while retaining BTF. Set `KERNEL_LTO=none` for a faster, less resource-intensive build, or `KERNEL_LTO=full` for Full LTO.
 
+The default `KERNEL_VARIANT=x86-64-v3` builds the generic kernel. To build the AMD Zen 4/Zen 5 variant, set `KERNEL_VARIANT=znver4`; it has a separate `-znver4` package suffix and uses the `MZEN4` kernel configuration.
+
 The kernel image in the generated `linux-image-*` package is signed for UEFI Secure Boot. The private key and certificate are supplied through `SECURE_BOOT_KEY` and `SECURE_BOOT_CERT`; they are never generated or stored by the build automatically. Create a local key pair with:
 
 ```sh
@@ -31,7 +33,16 @@ SECURE_BOOT_CERT="$PWD/secure-boot/db.crt" \
 ./gh-build.sh
 ```
 
-Keep `secure-boot/db.key` private and enroll `secure-boot/db.der` in the target firmware or MOK database. CI expects the same PEM key and certificate in the `SECURE_BOOT_KEY` and `SECURE_BOOT_CERT` GitHub Secrets. Debian’s signed kernel package keeps the normal `linux-image-*` package name; the package payload, rather than its filename, distinguishes it from an unsigned intermediate package.
+Build the Zen 4/Zen 5 package set with:
+
+```sh
+KERNEL_VARIANT=znver4 \
+SECURE_BOOT_KEY="$PWD/secure-boot/db.key" \
+SECURE_BOOT_CERT="$PWD/secure-boot/db.crt" \
+./gh-build.sh
+```
+
+Keep `secure-boot/db.key` private and enroll `secure-boot/db.der` in the target firmware or MOK database. CI expects the same PEM key and certificate in the `SECURE_BOOT_KEY` and `SECURE_BOOT_CERT` GitHub Secrets. Debian's signed kernel package keeps the normal `linux-image-*` package name; the package payload, rather than its filename, distinguishes it from an unsigned intermediate package.
 
 # Licensing
 
