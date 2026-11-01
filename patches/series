@@ -3,7 +3,9 @@
 0001-flags.patch
 0005-ally.patch
 0008-acpi.patch
-btf.patch
 quirk.patch
+usb.patch
 wifi.patch
 bc250.patch
+ath12k-rxdma-ring-size.patch
+ath12k-qmi-chunk-align.patch
