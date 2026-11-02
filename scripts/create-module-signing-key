@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2026 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+# -- Generate a persistent kernel module-signing key and certificate.
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+OUTPUT_DIR="${1:-$ROOT_DIR/secure-boot}"
+KEY_FILE="$OUTPUT_DIR/module.key"
+CERT_FILE="$OUTPUT_DIR/module.crt"
+PEM_FILE="$OUTPUT_DIR/module.pem"
+SUBJECT="${MODULE_SIGNING_SUBJECT:-/CN=Nitrux Kernel Module Signing/}"
+DAYS="${MODULE_SIGNING_CERT_DAYS:-3650}"
+
+if ! command -v openssl >/dev/null 2>&1; then
+    echo "Error: openssl is required to generate the module-signing credentials."
+    exit 1
+fi
+
+if [ -e "$KEY_FILE" ] || [ -e "$CERT_FILE" ] || [ -e "$PEM_FILE" ]; then
+    echo "Error: module-signing credentials already exist in $OUTPUT_DIR"
+    echo "Remove those files only if you intend to replace the key pair."
+    exit 1
+fi
+
+mkdir -p "$OUTPUT_DIR"
+chmod 700 "$OUTPUT_DIR"
+umask 077
+
+openssl ecparam \
+    -name secp384r1 \
+    -genkey \
+    -noout \
+    -out "$KEY_FILE"
+openssl req \
+    -new \
+    -x509 \
+    -sha384 \
+    -days "$DAYS" \
+    -key "$KEY_FILE" \
+    -subj "$SUBJECT" \
+    -out "$CERT_FILE"
+cat "$KEY_FILE" "$CERT_FILE" > "$PEM_FILE"
+
+chmod 600 "$KEY_FILE" "$PEM_FILE"
+chmod 644 "$CERT_FILE"
+
+echo "Kernel module private key: $KEY_FILE"
+echo "Kernel module certificate:  $CERT_FILE"
+echo "Kernel module PEM bundle:   $PEM_FILE"
+echo "Keep $PEM_FILE private and use it as KERNEL_MODULE_SIGNING_KEY."

@@ -9,3 +9,6 @@ wifi.patch
 bc250.patch
 ath12k-rxdma-ring-size.patch
 ath12k-qmi-chunk-align.patch
+barrot-1-hci_core-Don-t-use-extended-advertising-with-broken-ext-scan.patch
+barrot-2-hci_event-Don-t-drop-LE-link-on-busy-remote-features.patch
+barrot-3-btusb-Disable-broken-LE-extended-scan-on-Barrot.patch

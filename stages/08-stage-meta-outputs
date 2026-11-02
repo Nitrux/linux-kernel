@@ -9,6 +9,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-mkdir -p "$ROOT_DIR/output"
+WORK_DIR="${KERNEL_WORK_DIR:-$ROOT_DIR/work}"
+OUTPUT_DIR="${KERNEL_OUTPUT_DIR:-$ROOT_DIR/output}"
+mkdir -p "$OUTPUT_DIR"
 
-find "$ROOT_DIR/work" -maxdepth 1 -type f -name '*.deb' -exec mv -f {} "$ROOT_DIR/output/" \;
+find "$WORK_DIR" -maxdepth 1 -type f -name '*.deb' -exec mv -f {} "$OUTPUT_DIR/" \;

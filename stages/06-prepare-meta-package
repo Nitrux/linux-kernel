@@ -9,7 +9,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-META_DIR="$ROOT_DIR/work/meta-package"
+WORK_DIR="${KERNEL_WORK_DIR:-$ROOT_DIR/work}"
+META_DIR="$WORK_DIR/meta-package"
 VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 DEB_MAINTAINER_NAME="${DEB_MAINTAINER_NAME:-Uri Herrera}"
 DEB_MAINTAINER_EMAIL="${DEB_MAINTAINER_EMAIL:-uri_herrera@nxos.org}"

@@ -9,9 +9,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+WORK_DIR="${KERNEL_WORK_DIR:-$ROOT_DIR/work}"
 
 SECURE_BOOT_KEY="${SECURE_BOOT_KEY:-}"
 SECURE_BOOT_CERT="${SECURE_BOOT_CERT:-}"
+SECURE_BOOT_LEGACY_KEY="${SECURE_BOOT_LEGACY_KEY:-}"
+SECURE_BOOT_LEGACY_CERT="${SECURE_BOOT_LEGACY_CERT:-}"
 
 if [ -z "$SECURE_BOOT_KEY" ] || [ -z "$SECURE_BOOT_CERT" ]; then
     echo "Error: SECURE_BOOT_KEY and SECURE_BOOT_CERT must point to the Secure Boot signing credentials."
@@ -19,14 +22,31 @@ if [ -z "$SECURE_BOOT_KEY" ] || [ -z "$SECURE_BOOT_CERT" ]; then
     exit 1
 fi
 
-for required_file in "$SECURE_BOOT_KEY" "$SECURE_BOOT_CERT"; do
+if [ -n "$SECURE_BOOT_LEGACY_KEY" ] || [ -n "$SECURE_BOOT_LEGACY_CERT" ]; then
+    if [ -z "$SECURE_BOOT_LEGACY_KEY" ] || [ -z "$SECURE_BOOT_LEGACY_CERT" ]; then
+        echo "Error: SECURE_BOOT_LEGACY_KEY and SECURE_BOOT_LEGACY_CERT must be supplied together."
+        exit 1
+    fi
+fi
+
+required_files=("$SECURE_BOOT_KEY" "$SECURE_BOOT_CERT")
+if [ -n "$SECURE_BOOT_LEGACY_KEY" ]; then
+    required_files+=("$SECURE_BOOT_LEGACY_KEY" "$SECURE_BOOT_LEGACY_CERT")
+fi
+
+for required_file in "${required_files[@]}"; do
     if [ ! -r "$required_file" ]; then
         echo "Error: Secure Boot signing file is not readable: $required_file"
         exit 1
     fi
 done
 
-for required_command in dpkg-deb sbsign sbverify; do
+required_commands=(dpkg-deb openssl sbsign sbverify)
+if [ -n "$SECURE_BOOT_LEGACY_KEY" ]; then
+    required_commands+=(sbattach)
+fi
+
+for required_command in "${required_commands[@]}"; do
     if ! command -v "$required_command" >/dev/null 2>&1; then
         echo "Error: required command is not available: $required_command"
         exit 1
@@ -34,7 +54,7 @@ for required_command in dpkg-deb sbsign sbverify; do
 done
 
 mapfile -t image_packages < <(
-    find "$ROOT_DIR/work" -maxdepth 1 -type f \
+    find "$WORK_DIR" -maxdepth 1 -type f \
         -name 'linux-image-*.deb' \
         ! -name 'linux-image-*-dbg_*.deb' \
         -print
@@ -46,7 +66,7 @@ if [ "${#image_packages[@]}" -ne 1 ]; then
 fi
 
 image_package="${image_packages[0]}"
-work_dir="$(mktemp -d "$ROOT_DIR/work/secure-boot.XXXXXX")"
+work_dir="$(mktemp -d "$WORK_DIR/secure-boot.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT
 
 payload_dir="$work_dir/payload"
@@ -72,6 +92,27 @@ sbsign \
     "$kernel_image"
 mv -f "$signed_image" "$kernel_image"
 sbverify --cert "$SECURE_BOOT_CERT" "$kernel_image" >/dev/null
+
+if [ -n "$SECURE_BOOT_LEGACY_KEY" ]; then
+    legacy_signature="$work_dir/vmlinuz.legacy.sig"
+    sbsign \
+        --key "$SECURE_BOOT_LEGACY_KEY" \
+        --cert "$SECURE_BOOT_LEGACY_CERT" \
+        --detached \
+        --output "$legacy_signature" \
+        "$kernel_image"
+    sbattach --attach "$legacy_signature" "$kernel_image"
+    sbverify --cert "$SECURE_BOOT_CERT" "$kernel_image" >/dev/null
+    sbverify --cert "$SECURE_BOOT_LEGACY_CERT" "$kernel_image" >/dev/null
+fi
+
+# Ship the public kernel certificate so the installer can enroll it through MOK.
+kernel_certificate="$payload_dir/usr/share/nitrux/secure-boot/kernel.cer"
+install -m 0755 -d "$(dirname "$kernel_certificate")"
+openssl x509 \
+    -in "$SECURE_BOOT_CERT" \
+    -outform DER \
+    -out "$kernel_certificate"
 
 # The kernel image changed after extraction, so refresh the package checksums.
 if [ -f "$payload_dir/DEBIAN/md5sums" ]; then

@@ -18,15 +18,19 @@ export KERNEL_VARIANT="${KERNEL_VARIANT:-x86-64-v3}"
 case "$KERNEL_VARIANT" in
     x86-64-v3)
         export KERNEL_VARIANT_SUFFIX=""
+        BUILD_NAME=generic
         ;;
     znver4)
         export KERNEL_VARIANT_SUFFIX="-znver4"
+        BUILD_NAME=znver4
         ;;
     *)
         echo "Error: KERNEL_VARIANT must be one of: x86-64-v3, znver4"
         exit 1
         ;;
 esac
+export KERNEL_WORK_DIR="${KERNEL_WORK_DIR:-$ROOT_DIR/work-$BUILD_NAME}"
+export KERNEL_OUTPUT_DIR="${KERNEL_OUTPUT_DIR:-$ROOT_DIR/output-$BUILD_NAME}"
 export KERNEL_LOCALVERSION="${KERNEL_LOCALVERSION:--nitrux${KERNEL_VARIANT_SUFFIX}}"
 export KERNEL_META_PACKAGE="linux-nitrux-amd64${KERNEL_VARIANT_SUFFIX}"
 export KERNEL_PKG_RELEASE="${KERNEL_PKG_RELEASE:-1nitrux1}"
@@ -39,8 +43,8 @@ cd "$ROOT_DIR"
 
 # -- Reset build workspace.
 
-rm -rf "$ROOT_DIR/work" "$ROOT_DIR/output"
-mkdir -p "$ROOT_DIR/cache" "$ROOT_DIR/output" "$ROOT_DIR/work"
+rm -rf "$KERNEL_WORK_DIR" "$KERNEL_OUTPUT_DIR"
+mkdir -p "$ROOT_DIR/cache" "$KERNEL_OUTPUT_DIR" "$KERNEL_WORK_DIR"
 
 if [ "$(dpkg --print-architecture)" != "amd64" ]; then
     echo "This build pipeline only supports amd64."
@@ -50,6 +54,11 @@ fi
 if [ -z "${SECURE_BOOT_KEY:-}" ] || [ -z "${SECURE_BOOT_CERT:-}" ]; then
     echo "Error: SECURE_BOOT_KEY and SECURE_BOOT_CERT are required for a signed kernel build."
     echo "Generate a key pair with: $ROOT_DIR/scripts/create-secure-boot-keys"
+    exit 1
+fi
+
+if [ -n "${KERNEL_MODULE_SIGNING_KEY:-}" ] && [ ! -r "$KERNEL_MODULE_SIGNING_KEY" ]; then
+    echo "Error: KERNEL_MODULE_SIGNING_KEY is not readable: $KERNEL_MODULE_SIGNING_KEY"
     exit 1
 fi
 
@@ -108,4 +117,4 @@ fi
 "$ROOT_DIR/stages/07-build-meta-package"
 "$ROOT_DIR/stages/08-stage-meta-outputs"
 
-echo "Build completed. Artifacts are in: $ROOT_DIR/output"
+echo "Build completed. Artifacts are in: $KERNEL_OUTPUT_DIR"
