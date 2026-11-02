@@ -1,0 +1,690 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Nitrux <hello@nxos.org>
+Date: Mon, 2 Nov 2026 00:00:00 -0600
+Subject: [PATCH] Add Nitrux Aesthetic FHS directory filtering
+
+Add an optional VFS directory-entry filter for Nitrux's Aesthetic FHS
+layout. Hidden entries are scoped to the current mount namespace and are
+keyed by filesystem device and inode. Direct path access is unchanged.
+
+The userspace control interface is a Generic Netlink family named
+"aesthetic_fhs". It supports hide, unhide, list, and flush operations.
+
+---
+ fs/Kconfig                         |  13 +
+ fs/Makefile                        |   1 +
+ fs/aesthetic_fhs.c                 | 396 +++++++++++++++++++++++++++++
+ fs/namei.c                         |  10 +-
+ fs/namespace.c                     |   2 +
+ fs/readdir.c                       |  38 ++++
+ include/linux/aesthetic_fhs.h      |  30 +++
+ include/uapi/linux/aesthetic_fhs.h |  27 +++
+ 8 files changed, 512 insertions(+), 5 deletions(-)
+
+diff --git a/fs/Kconfig b/fs/Kconfig
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -9,6 +9,19 @@ menu "File systems"
+ config DCACHE_WORD_ACCESS
+        bool
+ 
++config NITRUX_AESTHETIC_FHS
++	bool "Nitrux Aesthetic FHS directory filtering"
++	depends on NET
++	default n
++	help
++	  Hide selected directory entries from directory enumeration while
++	  preserving direct access to their paths. Entries are scoped to the
++	  current mount namespace and are controlled through the aesthetic_fhs
++	  Generic Netlink family.
++
++	  This is intended for cosmetic filesystem hierarchy presentation and
++	  is not an access-control mechanism.
++
+ config VALIDATE_FS_PARSER
+ 	bool "Validate filesystem parameter description"
+ 	help
+diff --git a/fs/Makefile b/fs/Makefile
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -19,6 +19,7 @@ obj-y :=	open.o read_write.o file_table.o super.o \
+ 		file_attr.o fserror.o nullfs.o failfs.o
+ 
+ obj-$(CONFIG_BUFFER_HEAD)	+= buffer.o mpage.o
++obj-$(CONFIG_NITRUX_AESTHETIC_FHS)	+= aesthetic_fhs.o
+ obj-$(CONFIG_PROC_FS)		+= proc_namespace.o
+ obj-$(CONFIG_LEGACY_DIRECT_IO)	+= direct-io.o
+ obj-y				+= notify/
+diff --git a/fs/aesthetic_fhs.c b/fs/aesthetic_fhs.c
+new file mode 100644
+--- /dev/null
++++ b/fs/aesthetic_fhs.c
+@@ -0,0 +1,396 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Nitrux Aesthetic FHS directory filtering.
++ */
++
++#include <linux/capability.h>
++#include <linux/cred.h>
++#include <linux/errno.h>
++#include <linux/fs.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/limits.h>
++#include <linux/list.h>
++#include <linux/module.h>
++#include <linux/namei.h>
++#include <linux/nsproxy.h>
++#include <linux/rwsem.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++#include <net/genetlink.h>
++#include <uapi/linux/aesthetic_fhs.h>
++
++#include "aesthetic_fhs.h"
++#include "mount.h"
++
++struct aesthetic_fhs_entry {
++	struct list_head list;
++	struct mnt_namespace *mnt_ns;
++	dev_t dev;
++	u64 ino;
++	char *path;
++};
++
++static int aesthetic_fhs_admin(void)
++{
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++
++	return 0;
++}
++
++struct aesthetic_fhs_target {
++	struct mnt_namespace *mnt_ns;
++	dev_t dev;
++	u64 ino;
++};
++
++static LIST_HEAD(aesthetic_fhs_entries);
++static DECLARE_RWSEM(aesthetic_fhs_lock);
++static struct genl_family aesthetic_fhs_family;
++
++static const struct nla_policy aesthetic_fhs_policy[AESTHETIC_FHS_ATTR_MAX + 1] = {
++	[AESTHETIC_FHS_ATTR_PATH] = {
++		.type = NLA_NUL_STRING,
++		.len = PATH_MAX - 1,
++	},
++};
++
++static struct mnt_namespace *aesthetic_fhs_path_namespace(const struct path *path)
++{
++	struct mount *mount = real_mount(path->mnt);
++
++	if (IS_ERR_OR_NULL(mount->mnt_ns))
++		return NULL;
++
++	return mount->mnt_ns;
++}
++
++static int aesthetic_fhs_resolve(const char *name,
++				 struct aesthetic_fhs_target *target)
++{
++	struct path path;
++	struct inode *inode;
++	int ret;
++
++	if (name[0] != '/')
++		return -EINVAL;
++
++	ret = kern_path(name, 0, &path);
++	if (ret)
++		return ret;
++
++	inode = d_inode(path.dentry);
++	if (!inode || (!d_is_dir(path.dentry) && !d_is_symlink(path.dentry))) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	target->mnt_ns = aesthetic_fhs_path_namespace(&path);
++	if (!target->mnt_ns) {
++		ret = -ENOENT;
++		goto out;
++	}
++
++	target->dev = inode->i_sb->s_dev;
++	target->ino = inode->i_ino;
++	ret = 0;
++out:
++	path_put(&path);
++	return ret;
++}
++
++static bool aesthetic_fhs_entry_matches(const struct aesthetic_fhs_entry *entry,
++					const struct aesthetic_fhs_target *target)
++{
++	return entry->mnt_ns == target->mnt_ns &&
++		entry->dev == target->dev && entry->ino == target->ino;
++}
++
++bool aesthetic_fhs_should_hide(const struct file *file, u64 ino)
++{
++	struct mnt_namespace *mnt_ns;
++	struct aesthetic_fhs_entry *entry;
++	bool hidden = false;
++
++	if (!file || !file->f_path.mnt)
++		return false;
++
++	mnt_ns = aesthetic_fhs_path_namespace(&file->f_path);
++	if (!mnt_ns)
++		return false;
++
++	down_read(&aesthetic_fhs_lock);
++	list_for_each_entry(entry, &aesthetic_fhs_entries, list) {
++		if (entry->mnt_ns == mnt_ns &&
++		    entry->dev == file->f_path.mnt->mnt_sb->s_dev &&
++		    entry->ino == ino) {
++			hidden = true;
++			break;
++		}
++	}
++	up_read(&aesthetic_fhs_lock);
++
++	return hidden;
++}
++
++void aesthetic_fhs_inode_deleted(struct inode *inode)
++{
++	struct aesthetic_fhs_entry *entry, *tmp;
++	struct mnt_namespace *mnt_ns;
++
++	if (!inode || !current->nsproxy)
++		return;
++
++	mnt_ns = current->nsproxy->mnt_ns;
++	down_write(&aesthetic_fhs_lock);
++	list_for_each_entry_safe(entry, tmp, &aesthetic_fhs_entries, list) {
++		if (entry->mnt_ns == mnt_ns &&
++		    entry->dev == inode->i_sb->s_dev &&
++		    entry->ino == inode->i_ino) {
++			list_del(&entry->list);
++			kfree(entry->path);
++			kfree(entry);
++		}
++	}
++	up_write(&aesthetic_fhs_lock);
++}
++
++void aesthetic_fhs_namespace_exit(struct mnt_namespace *mnt_ns)
++{
++	struct aesthetic_fhs_entry *entry, *tmp;
++
++	down_write(&aesthetic_fhs_lock);
++	list_for_each_entry_safe(entry, tmp, &aesthetic_fhs_entries, list) {
++		if (entry->mnt_ns == mnt_ns) {
++			list_del(&entry->list);
++			kfree(entry->path);
++			kfree(entry);
++		}
++	}
++	up_write(&aesthetic_fhs_lock);
++}
++
++static int aesthetic_fhs_get_path(struct genl_info *info, char **path)
++{
++	struct nlattr *attr = info->attrs[AESTHETIC_FHS_ATTR_PATH];
++
++	if (!attr || !nla_len(attr) || nla_len(attr) > PATH_MAX)
++		return -EINVAL;
++
++	*path = kmemdup_nul(nla_data(attr), nla_len(attr), GFP_KERNEL);
++	if (!*path)
++		return -ENOMEM;
++
++	if ((*path)[0] != '/') {
++		kfree(*path);
++		*path = NULL;
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int aesthetic_fhs_hide(struct sk_buff *skb, struct genl_info *info)
++{
++	struct aesthetic_fhs_target target;
++	struct aesthetic_fhs_entry *new_entry, *entry;
++	char *path;
++	int ret;
++
++	ret = aesthetic_fhs_admin();
++	if (ret)
++		return ret;
++
++	ret = aesthetic_fhs_get_path(info, &path);
++	if (ret)
++		return ret;
++
++	ret = aesthetic_fhs_resolve(path, &target);
++	if (ret)
++		goto out_path;
++
++	new_entry = kmalloc(sizeof(*new_entry), GFP_KERNEL);
++	if (!new_entry) {
++		ret = -ENOMEM;
++		goto out_path;
++	}
++
++	new_entry->path = path;
++	new_entry->mnt_ns = target.mnt_ns;
++	new_entry->dev = target.dev;
++	new_entry->ino = target.ino;
++
++	down_write(&aesthetic_fhs_lock);
++	list_for_each_entry(entry, &aesthetic_fhs_entries, list) {
++		if (entry->mnt_ns == target.mnt_ns &&
++		    entry->dev == target.dev && entry->ino == target.ino) {
++			ret = -EEXIST;
++			goto duplicate;
++		}
++	}
++
++	list_add_tail(&new_entry->list, &aesthetic_fhs_entries);
++	ret = 0;
++	goto unlock;
++
++duplicate:
++	kfree(new_entry->path);
++	kfree(new_entry);
++unlock:
++	up_write(&aesthetic_fhs_lock);
++	return ret;
++
++out_path:
++	kfree(path);
++	return ret;
++}
++
++static int aesthetic_fhs_unhide(struct sk_buff *skb, struct genl_info *info)
++{
++	struct aesthetic_fhs_target target;
++	struct aesthetic_fhs_entry *entry, *tmp;
++	char *path;
++	int ret;
++
++	ret = aesthetic_fhs_admin();
++	if (ret)
++		return ret;
++
++	ret = aesthetic_fhs_get_path(info, &path);
++	if (ret)
++		return ret;
++
++	ret = aesthetic_fhs_resolve(path, &target);
++	if (ret)
++		goto out_path;
++
++	ret = -ENOENT;
++	down_write(&aesthetic_fhs_lock);
++	list_for_each_entry_safe(entry, tmp, &aesthetic_fhs_entries, list) {
++		if (aesthetic_fhs_entry_matches(entry, &target)) {
++			list_del(&entry->list);
++			kfree(entry->path);
++			kfree(entry);
++			ret = 0;
++			break;
++		}
++	}
++	up_write(&aesthetic_fhs_lock);
++
++out_path:
++	kfree(path);
++	return ret;
++}
++
++static int aesthetic_fhs_flush(struct sk_buff *skb, struct genl_info *info)
++{
++	struct aesthetic_fhs_entry *entry, *tmp;
++	struct mnt_namespace *mnt_ns;
++
++	if (aesthetic_fhs_admin())
++		return -EPERM;
++
++	if (!current->nsproxy)
++		return -EINVAL;
++
++	mnt_ns = current->nsproxy->mnt_ns;
++	down_write(&aesthetic_fhs_lock);
++	list_for_each_entry_safe(entry, tmp, &aesthetic_fhs_entries, list) {
++		if (entry->mnt_ns == mnt_ns) {
++			list_del(&entry->list);
++			kfree(entry->path);
++			kfree(entry);
++		}
++	}
++	up_write(&aesthetic_fhs_lock);
++
++	return 0;
++}
++
++static int aesthetic_fhs_list(struct sk_buff *skb,
++			      struct netlink_callback *cb)
++{
++	struct aesthetic_fhs_entry *entry;
++	struct mnt_namespace *mnt_ns;
++	void *hdr;
++	unsigned long index = 0;
++	unsigned long skip = cb->args[0];
++
++	if (aesthetic_fhs_admin())
++		return -EPERM;
++
++	if (!current->nsproxy)
++		return 0;
++
++	mnt_ns = current->nsproxy->mnt_ns;
++	down_read(&aesthetic_fhs_lock);
++	list_for_each_entry(entry, &aesthetic_fhs_entries, list) {
++		if (entry->mnt_ns != mnt_ns)
++			continue;
++		if (index++ < skip)
++			continue;
++
++		hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid,
++				  cb->nlh->nlmsg_seq, &aesthetic_fhs_family,
++				  NLM_F_MULTI, AESTHETIC_FHS_CMD_LIST);
++		if (!hdr || nla_put_string(skb, AESTHETIC_FHS_ATTR_PATH,
++					   entry->path)) {
++			if (hdr)
++				genlmsg_cancel(skb, hdr);
++			break;
++		}
++		genlmsg_end(skb, hdr);
++		cb->args[0] = index;
++	}
++	up_read(&aesthetic_fhs_lock);
++
++	return skb->len;
++}
++
++static const struct genl_ops aesthetic_fhs_ops[] = {
++	{
++		.cmd = AESTHETIC_FHS_CMD_HIDE,
++		.doit = aesthetic_fhs_hide,
++	},
++	{
++		.cmd = AESTHETIC_FHS_CMD_UNHIDE,
++		.doit = aesthetic_fhs_unhide,
++	},
++	{
++		.cmd = AESTHETIC_FHS_CMD_FLUSH,
++		.doit = aesthetic_fhs_flush,
++	},
++	{
++		.cmd = AESTHETIC_FHS_CMD_LIST,
++		.dumpit = aesthetic_fhs_list,
++	},
++};
++
++static struct genl_family aesthetic_fhs_family __ro_after_init = {
++	.name = AESTHETIC_FHS_GENL_NAME,
++	.version = AESTHETIC_FHS_GENL_VERSION,
++	.maxattr = AESTHETIC_FHS_ATTR_MAX,
++	.policy = aesthetic_fhs_policy,
++	.netnsok = true,
++	.parallel_ops = true,
++	.module = THIS_MODULE,
++	.ops = aesthetic_fhs_ops,
++	.n_ops = ARRAY_SIZE(aesthetic_fhs_ops),
++};
++
++static int __init aesthetic_fhs_init(void)
++{
++	return genl_register_family(&aesthetic_fhs_family);
++}
++module_init(aesthetic_fhs_init);
++
++static void __exit aesthetic_fhs_exit(void)
++{
++	genl_unregister_family(&aesthetic_fhs_family);
++}
++module_exit(aesthetic_fhs_exit);
++
++MODULE_DESCRIPTION("Nitrux Aesthetic FHS directory filtering");
++MODULE_LICENSE("GPL");
+diff --git a/fs/namei.c b/fs/namei.c
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -46,2 +46,3 @@
+ #include "internal.h"
+ #include "mount.h"
++#include "aesthetic_fhs.h"
+@@ -5525,5 +5525,7 @@ int vfs_rmdir(struct mnt_idmap *idmap, struct inode *dir,
+-	dput(dentry);
+-	if (!error)
+-		d_delete_notify(dir, dentry);
++	if (!error) {
++		d_delete_notify(dir, dentry);
++		aesthetic_fhs_inode_deleted(dentry->d_inode);
++	}
++	dput(dentry);
+ 	return error;
+ }
+@@ -5661,6 +5661,7 @@ int vfs_unlink(struct mnt_idmap *idmap, struct inode *dir,
+ 	} else if (!error) {
+ 		fsnotify_link_count(target);
+ 		d_delete_notify(dir, dentry);
++		aesthetic_fhs_inode_deleted(target);
+ 	}
+ 
+ 	return error;
+diff --git a/fs/namespace.c b/fs/namespace.c
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -38,2 +38,3 @@
+ #include "pnode.h"
+ #include "internal.h"
++#include "aesthetic_fhs.h"
+@@ -4352,4 +4352,5 @@ static void free_mnt_ns(struct mnt_namespace *ns)
+ {
++	aesthetic_fhs_namespace_exit(ns);
+ 	if (!is_anon_ns(ns))
+ 		ns_common_free(ns);
+ 	dec_mnt_namespaces(ns->ucounts);
+diff --git a/fs/readdir.c b/fs/readdir.c
+--- a/fs/readdir.c
++++ b/fs/readdir.c
+@@ -22,4 +22,8 @@
+ #include <linux/compat.h>
+ #include <linux/uaccess.h>
+ 
++#ifdef CONFIG_NITRUX_AESTHETIC_FHS
++#include <linux/aesthetic_fhs.h>
++#endif
++
+ #define dirent_size(dirent, len) offsetof(typeof(*(dirent)), d_name[len])
+@@ -183,4 +183,5 @@ struct readdir_callback {
+ 	struct dir_context ctx;
+ 	struct old_linux_dirent __user * dirent;
++	struct file *file;
+ 	int result;
+ };
+@@ -193,5 +193,9 @@ static bool fillonedir(struct dir_context *ctx, const char *name, int namlen,
+ 	struct old_linux_dirent __user * dirent;
+ 	unsigned long d_ino;
+ 
++#ifdef CONFIG_NITRUX_AESTHETIC_FHS
++	if (aesthetic_fhs_should_hide(buf->file, ino))
++		return true;
++#endif
+ 	if (buf->result)
+ 		return false;
+@@ -225,5 +225,6 @@ SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
+ 	struct readdir_callback buf = {
+ 		.ctx.actor = fillonedir,
+ 		.ctx.count = 1, /* Hint to fs: just one entry. */
++		.file = fd_file(f),
+ 		.dirent = dirent
+ 	};
+@@ -254,5 +254,6 @@ struct getdents_callback {
+ 	struct dir_context ctx;
+ 	struct linux_dirent __user * current_dir;
++	struct file *file;
+ 	int prev_reclen;
+ 	int error;
+ };
+@@ -269,4 +269,8 @@ static bool filldir(struct dir_context *ctx, const char *name, int namlen,
+ 	int prev_reclen;
+ 	unsigned int flags = d_type;
+ 
++#ifdef CONFIG_NITRUX_AESTHETIC_FHS
++	if (aesthetic_fhs_should_hide(buf->file, ino))
++		return true;
++#endif
+ 	BUILD_BUG_ON(FILLDIR_FLAG_NOINTR & S_DT_MASK);
+@@ -314,4 +314,5 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
+ 		.ctx.count = count,
+ 		.ctx.dt_flags_mask = FILLDIR_FLAG_NOINTR,
+-		.current_dir = dirent
++		.current_dir = dirent,
++		.file = fd_file(f)
+ 	};
+@@ -339,5 +339,6 @@ struct getdents_callback64 {
+ 	struct dir_context ctx;
+ 	struct linux_dirent64 __user * current_dir;
++	struct file *file;
+ 	int prev_reclen;
+ 	int error;
+ };
+@@ -353,4 +353,8 @@ static bool filldir64(struct dir_context *ctx, const char *name, int namlen,
+ 	int prev_reclen;
+ 	unsigned int flags = d_type;
+ 
++#ifdef CONFIG_NITRUX_AESTHETIC_FHS
++	if (aesthetic_fhs_should_hide(buf->file, ino))
++		return true;
++#endif
+ 	BUILD_BUG_ON(FILLDIR_FLAG_NOINTR & S_DT_MASK);
+@@ -394,4 +394,5 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
+ 		.ctx.count = count,
+ 		.ctx.dt_flags_mask = FILLDIR_FLAG_NOINTR,
+-		.current_dir = dirent
++		.current_dir = dirent,
++		.file = fd_file(f)
+ 	};
+@@ -429,4 +429,5 @@ struct compat_readdir_callback {
+ 	struct dir_context ctx;
+ 	struct compat_old_linux_dirent __user *dirent;
++	struct file *file;
+ 	int result;
+ };
+@@ -440,5 +440,9 @@ static bool compat_fillonedir(struct dir_context *ctx, const char *name,
+ 	struct compat_old_linux_dirent __user *dirent;
+ 	compat_ulong_t d_ino;
+ 
++#ifdef CONFIG_NITRUX_AESTHETIC_FHS
++	if (aesthetic_fhs_should_hide(buf->file, ino))
++		return true;
++#endif
+ 	if (buf->result)
+ 		return false;
+@@ -472,5 +472,6 @@ COMPAT_SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
+ 	struct compat_readdir_callback buf = {
+ 		.ctx.actor = compat_fillonedir,
+ 		.ctx.count = 1, /* Hint to fs: just one entry. */
++		.file = fd_file(f),
+ 		.dirent = dirent
+ 	};
+@@ -496,5 +496,6 @@ struct compat_getdents_callback {
+ 	struct dir_context ctx;
+ 	struct compat_linux_dirent __user *current_dir;
++	struct file *file;
+ 	int prev_reclen;
+ 	int error;
+ };
+@@ -510,4 +510,8 @@ static bool compat_filldir(struct dir_context *ctx, const char *name, int namlen,
+ 	int prev_reclen;
+ 	unsigned int flags = d_type;
+ 
++#ifdef CONFIG_NITRUX_AESTHETIC_FHS
++	if (aesthetic_fhs_should_hide(buf->file, ino))
++		return true;
++#endif
+ 	BUILD_BUG_ON(FILLDIR_FLAG_NOINTR & S_DT_MASK);
+@@ -555,3 +555,4 @@ COMPAT_SYSCALL_DEFINE3(getdents, unsigned int, fd,
+ 		.ctx.dt_flags_mask = FILLDIR_FLAG_NOINTR,
+ 		.current_dir = dirent,
++		.file = fd_file(f),
+ 	};
+diff --git a/include/linux/aesthetic_fhs.h b/include/linux/aesthetic_fhs.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/aesthetic_fhs.h
+@@ -0,0 +1,30 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _LINUX_AESTHETIC_FHS_H
++#define _LINUX_AESTHETIC_FHS_H
++
++#include <linux/types.h>
++
++struct file;
++struct inode;
++struct mnt_namespace;
++
++#ifdef CONFIG_NITRUX_AESTHETIC_FHS
++bool aesthetic_fhs_should_hide(const struct file *file, u64 ino);
++void aesthetic_fhs_inode_deleted(struct inode *inode);
++void aesthetic_fhs_namespace_exit(struct mnt_namespace *mnt_ns);
++#else
++static inline bool aesthetic_fhs_should_hide(const struct file *file, u64 ino)
++{
++	return false;
++}
++
++static inline void aesthetic_fhs_inode_deleted(struct inode *inode)
++{
++}
++
++static inline void aesthetic_fhs_namespace_exit(struct mnt_namespace *mnt_ns)
++{
++}
++#endif
++
++#endif
+diff --git a/include/uapi/linux/aesthetic_fhs.h b/include/uapi/linux/aesthetic_fhs.h
+new file mode 100644
+--- /dev/null
++++ b/include/uapi/linux/aesthetic_fhs.h
+@@ -0,0 +1,27 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++#ifndef _UAPI_LINUX_AESTHETIC_FHS_H
++#define _UAPI_LINUX_AESTHETIC_FHS_H
++
++#define AESTHETIC_FHS_GENL_NAME		"aesthetic_fhs"
++#define AESTHETIC_FHS_GENL_VERSION	1
++
++enum {
++	AESTHETIC_FHS_CMD_UNSPEC,
++	AESTHETIC_FHS_CMD_HIDE,
++	AESTHETIC_FHS_CMD_UNHIDE,
++	AESTHETIC_FHS_CMD_FLUSH,
++	AESTHETIC_FHS_CMD_LIST,
++	__AESTHETIC_FHS_CMD_MAX,
++};
++
++#define AESTHETIC_FHS_CMD_MAX (__AESTHETIC_FHS_CMD_MAX - 1)
++
++enum {
++	AESTHETIC_FHS_ATTR_UNSPEC,
++	AESTHETIC_FHS_ATTR_PATH,
++	__AESTHETIC_FHS_ATTR_MAX,
++};
++
++#define AESTHETIC_FHS_ATTR_MAX (__AESTHETIC_FHS_ATTR_MAX - 1)
++
++#endif
+--

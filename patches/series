@@ -3,6 +3,7 @@
 0001-flags.patch
 0005-ally.patch
 0008-acpi.patch
+0009-aesthetic-fhs.patch
 quirk.patch
 usb.patch
 wifi.patch
