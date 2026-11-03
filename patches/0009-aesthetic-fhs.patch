@@ -16,14 +16,14 @@ The userspace control interface is a Generic Netlink family named
 ---
  fs/Kconfig                         |  13 +
  fs/Makefile                        |   1 +
- fs/aesthetic_fhs.c                 | 396 +++++++++++++++++++++++++++++
+ fs/aesthetic_fhs.c                 | 398 +++++++++++++++++++++++++++++
  init/Makefile                      |   3 +-
  fs/namei.c                         |  10 +-
  fs/namespace.c                     |   2 +
  fs/readdir.c                       |  38 ++++
  include/linux/aesthetic_fhs.h      |  30 +++
  include/uapi/linux/aesthetic_fhs.h |  27 +++
- 9 files changed, 514 insertions(+), 6 deletions(-)
+ 9 files changed, 516 insertions(+), 6 deletions(-)
 
 diff --git a/fs/Kconfig b/fs/Kconfig
 --- a/fs/Kconfig
@@ -75,7 +75,7 @@ diff --git a/fs/aesthetic_fhs.c b/fs/aesthetic_fhs.c
 new file mode 100644
 --- /dev/null
 +++ b/fs/aesthetic_fhs.c
-@@ -0,0 +1,396 @@
+@@ -0,0 +1,398 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Nitrux Aesthetic FHS directory filtering.
@@ -148,34 +148,36 @@ new file mode 100644
 +static int aesthetic_fhs_resolve(const char *name,
 +				 struct aesthetic_fhs_target *target)
 +{
-+	struct path path;
++	struct path parent;
++	struct dentry *dentry;
 +	struct inode *inode;
 +	int ret;
 +
 +	if (name[0] != '/')
 +		return -EINVAL;
 +
-+	ret = kern_path(name, 0, &path);
-+	if (ret)
-+		return ret;
++	dentry = kern_path_parent(name, &parent);
++	if (IS_ERR(dentry))
++		return PTR_ERR(dentry);
 +
-+	inode = d_inode(path.dentry);
-+	if (!inode || (!d_is_dir(path.dentry) && !d_is_symlink(path.dentry))) {
++	inode = d_inode(dentry);
++	if (!inode) {
 +		ret = -EINVAL;
 +		goto out;
 +	}
 +
-+	target->mnt_ns = aesthetic_fhs_path_namespace(&path);
++	target->mnt_ns = aesthetic_fhs_path_namespace(&parent);
 +	if (!target->mnt_ns) {
 +		ret = -ENOENT;
 +		goto out;
 +	}
 +
-+	target->dev = inode->i_sb->s_dev;
++	target->dev = parent.mnt->mnt_sb->s_dev;
 +	target->ino = inode->i_ino;
 +	ret = 0;
 +out:
-+	path_put(&path);
++	dput(dentry);
++	path_put(&parent);
 +	return ret;
 +}
 +
