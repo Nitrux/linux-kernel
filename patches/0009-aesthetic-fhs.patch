@@ -7,6 +7,9 @@ Add an optional VFS directory-entry filter for Nitrux's Aesthetic FHS
 layout. Hidden entries are scoped to the current mount namespace and are
 keyed by filesystem device and inode. Direct path access is unchanged.
 
+Builds with the feature enabled include an A_FHS marker in the kernel
+version reported by uname.
+
 The userspace control interface is a Generic Netlink family named
 "aesthetic_fhs". It supports hide, unhide, list, and flush operations.
 
@@ -14,12 +17,13 @@ The userspace control interface is a Generic Netlink family named
  fs/Kconfig                         |  13 +
  fs/Makefile                        |   1 +
  fs/aesthetic_fhs.c                 | 396 +++++++++++++++++++++++++++++
+ init/Makefile                      |   3 +-
  fs/namei.c                         |  10 +-
  fs/namespace.c                     |   2 +
  fs/readdir.c                       |  38 ++++
  include/linux/aesthetic_fhs.h      |  30 +++
  include/uapi/linux/aesthetic_fhs.h |  27 +++
- 8 files changed, 512 insertions(+), 5 deletions(-)
+ 9 files changed, 514 insertions(+), 6 deletions(-)
 
 diff --git a/fs/Kconfig b/fs/Kconfig
 --- a/fs/Kconfig
@@ -55,6 +59,18 @@ diff --git a/fs/Makefile b/fs/Makefile
  obj-$(CONFIG_PROC_FS)		+= proc_namespace.o
  obj-$(CONFIG_LEGACY_DIRECT_IO)	+= direct-io.o
  obj-y				+= notify/
+diff --git a/init/Makefile b/init/Makefile
+--- a/init/Makefile
++++ b/init/Makefile
+@@ -27,4 +27,5 @@
+ smp-flag-$(CONFIG_SMP)			:= SMP
+ preempt-flag-$(CONFIG_PREEMPT_BUILD)	:= PREEMPT
+ preempt-flag-$(CONFIG_PREEMPT_DYNAMIC)	:= PREEMPT_DYNAMIC
++aesthetic-fhs-flag-$(CONFIG_NITRUX_AESTHETIC_FHS) := A_FHS
+ preempt-flag-$(CONFIG_PREEMPT_RT)	:= PREEMPT_RT
+@@ -37,1 +38,1 @@
+-	utsver=$$(echo '$(pound)'"$(build-version)" $(smp-flag-y) $(preempt-flag-y) "$(build-timestamp)" | cut -b -64); \
++	utsver=$$(echo '$(pound)'"$(build-version)" $(smp-flag-y) $(preempt-flag-y) $(aesthetic-fhs-flag-y) "$(build-timestamp)" | cut -b -64); \
 diff --git a/fs/aesthetic_fhs.c b/fs/aesthetic_fhs.c
 new file mode 100644
 --- /dev/null
