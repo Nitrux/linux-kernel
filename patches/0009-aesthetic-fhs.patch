@@ -83,7 +83,7 @@ new file mode 100644
 +#include <net/genetlink.h>
 +#include <uapi/linux/aesthetic_fhs.h>
 +
-+#include "aesthetic_fhs.h"
++#include <linux/aesthetic_fhs.h>
 +#include "mount.h"
 +
 +struct aesthetic_fhs_entry {
@@ -462,7 +462,7 @@ diff --git a/fs/namei.c b/fs/namei.c
 @@ -46,2 +46,3 @@
  #include "internal.h"
  #include "mount.h"
-+#include "aesthetic_fhs.h"
++#include <linux/aesthetic_fhs.h>
 @@ -5525,5 +5525,7 @@ int vfs_rmdir(struct mnt_idmap *idmap, struct inode *dir,
 -	dput(dentry);
 -	if (!error)
@@ -488,7 +488,7 @@ diff --git a/fs/namespace.c b/fs/namespace.c
 @@ -38,2 +38,3 @@
  #include "pnode.h"
  #include "internal.h"
-+#include "aesthetic_fhs.h"
++#include <linux/aesthetic_fhs.h>
 @@ -4352,4 +4352,5 @@ static void free_mnt_ns(struct mnt_namespace *ns)
  {
 +	aesthetic_fhs_namespace_exit(ns);
