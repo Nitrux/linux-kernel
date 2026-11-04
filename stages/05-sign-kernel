@@ -82,6 +82,23 @@ if [ "${#kernel_images[@]}" -ne 1 ]; then
 fi
 
 kernel_image="${kernel_images[0]}"
+image_package_name="$(dpkg-deb -f "$image_package" Package)"
+case "$KERNEL_VARIANT" in
+    x86-64-v3)
+        conflicting_image_package="${image_package_name}-znver4"
+        ;;
+    znver4)
+        conflicting_image_package="${image_package_name%-znver4}"
+        ;;
+esac
+control_file="$payload_dir/DEBIAN/control"
+for relationship in Conflicts Replaces; do
+    if grep -q "^${relationship}:" "$control_file"; then
+        sed -i "/^${relationship}:/ s/$/, ${conflicting_image_package}/" "$control_file"
+    else
+        printf '\n%s: %s\n' "$relationship" "$conflicting_image_package" >> "$control_file"
+    fi
+done
 signed_image="$work_dir/vmlinuz.signed"
 
 echo "Signing kernel image: ${kernel_image##*/}"
@@ -106,7 +123,9 @@ if [ -n "$SECURE_BOOT_LEGACY_KEY" ]; then
     sbverify --cert "$SECURE_BOOT_LEGACY_CERT" "$kernel_image" >/dev/null
 fi
 
-# Ship the public kernel certificate so the installer can enroll it through MOK.
+
+# -- Ship the public kernel certificate so the installer can enroll it through MOK.
+
 kernel_certificate="$payload_dir/usr/share/nitrux/secure-boot/kernel.cer"
 install -m 0755 -d "$(dirname "$kernel_certificate")"
 openssl x509 \
@@ -114,7 +133,9 @@ openssl x509 \
     -outform DER \
     -out "$kernel_certificate"
 
-# The kernel image changed after extraction, so refresh the package checksums.
+
+# -- The kernel image changed after extraction, so refresh the package checksums.
+
 if [ -f "$payload_dir/DEBIAN/md5sums" ]; then
     (
         cd "$payload_dir"
