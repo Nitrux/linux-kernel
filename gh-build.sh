@@ -77,7 +77,7 @@ if [ "${SKIP_BUILD_DEPS:-0}" != "1" ] && command -v apt-get >/dev/null 2>&1; the
     fi
 
     "${APT[@]}" update -y
-    "${APT[@]}" install -y \
+    "${APT[@]}" install -y --no-install-recommends \
         bc \
         bison \
         build-essential \
