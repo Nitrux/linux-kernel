@@ -13,4 +13,4 @@ WORK_DIR="${KERNEL_WORK_DIR:-$ROOT_DIR/work}"
 OUTPUT_DIR="${KERNEL_OUTPUT_DIR:-$ROOT_DIR/output}"
 mkdir -p "$OUTPUT_DIR"
 
-find "$WORK_DIR" -maxdepth 1 -type f -name '*.deb' -exec mv -f {} "$OUTPUT_DIR/" \;
+find "$WORK_DIR" -type f -name '*.deb' -exec mv -f {} "$OUTPUT_DIR/" \;

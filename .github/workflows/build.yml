@@ -88,6 +88,8 @@ jobs:
           echo "SECURE_BOOT_CERT=/tmp/nitrux-secure-boot/db.crt" >> "$GITHUB_ENV"
 
       - name: Build kernel and package set
+        env:
+          KERNEL_OUTPUT_DIR: output
         run: ./gh-build.sh
 
       - name: Upload Debian packages
