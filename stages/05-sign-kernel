@@ -96,7 +96,7 @@ for relationship in Conflicts Replaces; do
     if grep -q "^${relationship}:" "$control_file"; then
         sed -i "/^${relationship}:/ s/$/, ${conflicting_image_package}/" "$control_file"
     else
-        printf '\n%s: %s\n' "$relationship" "$conflicting_image_package" >> "$control_file"
+        printf '%s: %s\n' "$relationship" "$conflicting_image_package" >> "$control_file"
     fi
 done
 signed_image="$work_dir/vmlinuz.signed"
